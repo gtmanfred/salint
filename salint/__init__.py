@@ -8,6 +8,14 @@ import salt.loader
 import salt.state
 import salt.ext.six as six
 
+import salint.rules
+
+if six.PY2:
+    import imp
+    find_module = imp.find_module
+else:
+    import importlib
+    find_module = importlib.machinery.PathFinder.find_module
 
 log = logging.getLogger('testlog')
 log_format = '%(statefile)-8s | %(stateid)s | %(statename)s | %(message)s'
@@ -21,10 +29,8 @@ logging.root.addHandler(handler)
 
 
 class Linter(object):
-    def __init__(self, opts=None, pillar=None, grains=None):
+    def __init__(self, opts=None):
         self.opts = opts or {}
-        self.opts['pillar'] = pillar or {}
-        self.opts['grains'] = grains or {}
         self._load_modules()
         self._load_renderers()
 
@@ -70,32 +76,12 @@ class Linter(object):
 
     @property
     def tests(self):
-        return [
-            test for _, test in inspect.getmembers(Linter, predicate=lambda meth: inspect.isfunction(meth) and meth.__name__.startswith('_test_case'))
-        ]
-
-    def _test_case_requisites_match(self, state):
-        for req_word in salt.state.STATE_REQUISITE_KEYWORDS | salt.state.STATE_REQUISITE_IN_KEYWORDS:
-            for req in state.get(req_word, []):
-                if isinstance(req, six.string_types):
-                    if not any(filter(lambda sls: req == sls['__sls__'], self.lowstate)):
-                        self._logger('Unable to find requisite: %s', req)
-                elif isinstance(req, dict):
-                    key, value = next(six.iteritems(req))
-                    if not any(filter(lambda sls: key == sls['state'] and (value == sls['__id__'] or value == sls['name']), self.lowstate)):
-                        self._logger('Unable to find requisite: %s', dict(req))
-                else:
-                    self._logger('Unrecognized requisite type: %s', type(req))
-
-    def _test_case_match_args(self, state):
-        if state['state'] not in self.mods:
-            self._logger('State module does not exist: %s', state['state'])
-        if not hasattr(self.mods[state['state']], state['fun']):
-            self._logger('State function does not exist: %s.%s', state['state'], state['fun'])
-        args = salt.utils.args.get_function_argspec(getattr(self.mods[state['state']], state['fun']))
-        for arg in six.iterkeys(state):
-            if arg not in args and arg not in salt.state.STATE_REQUISITE_KEYWORDS | salt.state.STATE_REQUISITE_IN_KEYWORDS | salt.state.STATE_RUNTIME_KEYWORDS | {'name',}:
-                self._logger('Arg not accepted by state %s.%s: %s', state['state'], state['fun'], arg)
+        for parent, _, rulefiles in os.walk(os.path.dirname(salint.rules.__file__)):
+            for rulefile in rulefiles:
+                if not rulefile.endswith('.py') or rulefile == '__init__.py':
+                    continue
+                for ret in inspect.getmembers(find_module(rulefile[:-3], [parent]).load_module(), predicate=inspect.isfunction):
+                    yield ret[1]
 
     def render_state(self, path):
         return salt.template.compile_template(
