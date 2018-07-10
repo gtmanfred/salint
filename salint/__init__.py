@@ -2,6 +2,7 @@
 import inspect
 import logging
 import os
+import pkg_resources
 import sys
 
 import salt.loader
@@ -12,16 +13,21 @@ import salint.rules
 
 if six.PY2:
     import imp
-    find_module = imp.find_module
+
+    def load_module(fullname, path):
+        fp, pathname, description = imp.find_module(fullname, [path])
+        return imp.load_module(fullname, fp, pathname, description)
 else:
     import importlib
-    find_module = importlib.machinery.PathFinder.find_module
 
-log = logging.getLogger('testlog')
-log_format = '%(statefile)-8s | %(stateid)s | %(statename)s | %(message)s'
+    def load_module(fullname, path):
+        return importlib.machinery.PathFinder.find_module(fullname, [path]).load_module()
+
+log_format = '%(statefile)s | %(stateid)s | %(statename)s | %(message)s'
 date_format = '%H:%M:%S'
 formatter = logging.Formatter(log_format, datefmt=date_format)
 
+log = logging.getLogger(__name__)
 handler = logging.StreamHandler(sys.stderr)
 handler.setLevel('warning'.upper())
 handler.setFormatter(formatter)
@@ -49,7 +55,7 @@ class Linter(object):
                 self.mods[alias] = mod
 
     def _load_renderers(self):
-        self.minion_mods= salt.loader.minion_mods(self.opts)
+        self.minion_mods = salt.loader.minion_mods(self.opts)
         self.renderers = salt.loader.render(
             self.opts,
             self.minion_mods,
@@ -67,12 +73,15 @@ class Linter(object):
             st_.pop_active()
         errors = st_.state.verify_high(high_)
         if errors:
-            __context__['retcode'] = 1
             return errors
         return st_.state.compile_high_data(high_)
 
-    def _logger(self, message, *args):
-        log.warning(message, *args, extra=self.info)
+    def _logger(self, message, *args, **kwargs):
+        level = kwargs.pop('level', 'warning')
+        getattr(log, level)(message, *args, extra=self.info)
+
+    def _get_members(self, mod):
+        return inspect.getmembers(mod, predicate=inspect.isfunction)
 
     @property
     def tests(self):
@@ -80,8 +89,11 @@ class Linter(object):
             for rulefile in rulefiles:
                 if not rulefile.endswith('.py') or rulefile == '__init__.py':
                     continue
-                for ret in inspect.getmembers(find_module(rulefile[:-3], [parent]).load_module(), predicate=inspect.isfunction):
+                for ret in self._get_members(load_module(rulefile[:-3], parent)):
                     yield ret[1]
+        for rulefile in pkg_resources.iter_entry_points('salint.rules', name=None):
+            for ret in self._get_members(rulefile.load()):
+                yield ret[1]
 
     def render_state(self, path):
         return salt.template.compile_template(
