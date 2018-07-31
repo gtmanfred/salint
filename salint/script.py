@@ -2,18 +2,18 @@
 import os
 
 import salint
+import salint.parser
 
 
 def main():
+    args = salint.parser.parse_args()
     opts = {
         'fileserver_backend': ['roots'],
         'extension_modules': './.lintcache/extmods',
         'file_client': 'local',
         'cachedir': './.lintcache/',
         'file_roots': {
-            'base': [
-                os.getcwd(),
-            ],
+            'base': args.paths or [os.getcwd()],
         },
         'state_top': 'salt://top.sls',
         'state_auto_order': True,

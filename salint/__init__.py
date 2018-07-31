@@ -120,12 +120,13 @@ class Linter(object):
                 test(self, state)
 
     def lint_all(self):
-        for parent, _, statefiles in os.walk('.'):
-            if parent.startswith('.') and parent not in ('.', '..'):
-                continue
-            for sls in statefiles:
-                if sls.endswith('.sls'):
-                    if parent == '.':
-                        self.lint_sls(sls[:-4])
-                    else:
-                        self.lint_sls('.'.join([parent.replace(os.sep, '.'), sls[:-4]]))
+        for dir_ in self.opts['file_roots']['base']:
+            for parent, _, statefiles in os.walk(dir_):
+                if parent.startswith('.') and parent not in ('.', '..'):
+                    continue
+                for sls in statefiles:
+                    if sls.endswith('.sls'):
+                        if parent == '.':
+                            self.lint_sls(sls[:-4])
+                        else:
+                            self.lint_sls('.'.join([parent.replace(os.sep, '.'), sls[:-4]]))
