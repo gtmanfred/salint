@@ -5,16 +5,24 @@ import salint
 import salint.parser
 
 
+def _ensure_abs(path):
+    if not os.path.isabs(path):
+        return os.path.join(os.getcwd(), path)
+    return path
+
+
 def main():
     args = salint.parser.parse_args()
+    paths = [_ensure_abs(path) for path in args.paths or [os.getcwd()]]
     opts = {
         'fileserver_backend': ['roots'],
         'extension_modules': './.lintcache/extmods',
         'file_client': 'local',
         'cachedir': './.lintcache/',
         'file_roots': {
-            'base': args.paths or [os.getcwd()],
+            'base': paths,
         },
+        'environment': 'base',
         'state_top': 'salt://top.sls',
         'state_auto_order': True,
         'fileserver_followsymlinks': True,

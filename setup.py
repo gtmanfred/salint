@@ -35,4 +35,3 @@ setup(
         'Source': 'https://github.com/gtmanfred/salint/',
     },
 )
-

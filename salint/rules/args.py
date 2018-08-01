@@ -10,11 +10,13 @@ _keywords = salt.state.STATE_REQUISITE_KEYWORDS | \
             {'name'}
 
 
-def match_args(self, state):
+def test_match_args(self, state):
     if state['state'] not in self.mods:
         self._logger('State module does not exist: %s', state['state'])
+        return
     if not hasattr(self.mods[state['state']], state['fun']):
         self._logger('State function does not exist: %s.%s', state['state'], state['fun'])
+        return
     args = salt.utils.args.get_function_argspec(getattr(self.mods[state['state']], state['fun']))
     if args.keywords is not None:
         return

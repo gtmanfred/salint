@@ -2,14 +2,20 @@ include:
   - that
 
 test:
-  file.managed:
+  file.touch:
     - name: /tmp/test
-    - context:
-      what: this
     - require:
       - test: test2
     - wathc_in:
       - service: uwsgi-emepror
+
+test1:
+  file.managed:
+    - name: /tmp/test
+    - context:
+      what: false
+    - require:
+      - test: test2
 
 containers:
   docker_container.running:
@@ -20,3 +26,6 @@ containers:
     - wathc_in:
       - service: uwsgi-emepror
     
+whatever:
+  thingser.fail:
+    - name: huh

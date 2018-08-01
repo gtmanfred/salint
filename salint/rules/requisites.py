@@ -4,7 +4,7 @@ import salt.state
 import salt.ext.six as six
 
 
-def requisites_match(self, state):
+def test_requisites_match(self, state):
 
     def _sls_test(sls):
         return key == sls['state'] and (value == sls['__id__'] or value == sls['name'])

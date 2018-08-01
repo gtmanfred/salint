@@ -81,7 +81,9 @@ class Linter(object):
         getattr(log, level)(message, *args, extra=self.info)
 
     def _get_members(self, mod):
-        return inspect.getmembers(mod, predicate=inspect.isfunction)
+        def _get_test_functions(fun):
+            return inspect.isfunction(fun) and fun.__name__.startswith('test_')
+        return inspect.getmembers(mod, predicate=_get_test_functions)
 
     @property
     def tests(self):
@@ -95,7 +97,11 @@ class Linter(object):
             for ret in self._get_members(rulefile.load()):
                 yield ret[1]
 
-    def render_state(self, path):
+    def render_state(self, path, parent=None):
+        if parent:
+            path = os.path.join(parent, path)
+        if not os.path.isabs(path):
+            path = '/' + path
         return salt.template.compile_template(
             path,
             self.renderers,
@@ -104,9 +110,9 @@ class Linter(object):
             self.opts['renderer_whitelist'],
         )
 
-    def lint_sls(self, sls):
+    def lint_sls(self, sls, path=None):
         self.lowstate = self.get_low(sls)
-        self.rendered = self.render_state(os.path.join(*sls.split('.')) + '.sls')
+        self.rendered = self.render_state(os.path.join(*sls.split('.')) + '.sls', parent=path)
 
         for state in self.lowstate:
             if sls != state['__sls__']:
@@ -121,12 +127,13 @@ class Linter(object):
 
     def lint_all(self):
         for dir_ in self.opts['file_roots']['base']:
+            dir_ = dir_.rstrip()
             for parent, _, statefiles in os.walk(dir_):
                 if parent.startswith('.') and parent not in ('.', '..'):
                     continue
                 for sls in statefiles:
                     if sls.endswith('.sls'):
-                        if parent == '.':
-                            self.lint_sls(sls[:-4])
+                        if parent == dir_:
+                            self.lint_sls(sls[:-4], path=dir_)
                         else:
                             self.lint_sls('.'.join([parent.replace(os.sep, '.'), sls[:-4]]))
