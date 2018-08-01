@@ -5,7 +5,7 @@ Setup File for Salint
 from setuptools import setup
 setup(
     name='salint',
-    version='0.0.1',
+    version='0.0.2',
     description='Linter for SaltStack States',
     url='https://github.com/gtmanfred/salint',
     author='Daniel Wallace',
